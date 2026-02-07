@@ -4,7 +4,7 @@ const axios = require("axios");
 
 // 기본 위치: 국민대 근처 키워드 기준
 router.get("/", async (req, res) => {
-    console.log("🔥 /places HIT", req.originalUrl);
+  console.log("🔥 /places HIT", req.originalUrl);
   try {
     const { query } = req.query;
 
@@ -14,6 +14,10 @@ router.get("/", async (req, res) => {
         message: "query가 필요합니다."
       });
     }
+
+    console.log("📍 네이버 API 호출 시작:", `국민대 ${query}`);
+    console.log("📍 Client ID:", process.env.NAVER_CLIENT_ID ? "설정됨" : "없음");
+    console.log("📍 Client Secret:", process.env.NAVER_CLIENT_SECRET ? "설정됨" : "없음");
 
     const response = await axios.get(
       "https://openapi.naver.com/v1/search/local.json",
@@ -30,6 +34,8 @@ router.get("/", async (req, res) => {
       }
     );
 
+    console.log("✅ 네이버 API 응답:", response.data.items?.length, "개 결과");
+
     const places = response.data.items.map(item => ({
       name: item.title.replace(/<[^>]*>/g, ""),
       address: item.roadAddress || item.address,
@@ -37,6 +43,8 @@ router.get("/", async (req, res) => {
       description: item.description,
       link: item.link
     }));
+
+    console.log("✅ 파싱 완료:", places.length, "개 장소");
 
     res.json({
       success: true,
@@ -48,10 +56,11 @@ router.get("/", async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Naver place error:", error.response?.data || error.message);
+    console.error("❌ Naver place error:", error.response?.data || error.message);
     res.status(500).json({
       success: false,
-      message: "네이버 장소 검색 실패"
+      message: "네이버 장소 검색 실패",
+      error: error.response?.data || error.message
     });
   }
 });
