@@ -1,100 +1,59 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const Menu = require('../models/Menu');
-const Session = require('../models/Session');
+const axios = require("axios");
 
-// GET /places - 세션 ID로 DB를 쿼리하여 음식 추천
-router.get('/', async (req, res) => {
-    try {
-        const { sessionId } = req.query;
+// 기본 위치: 국민대 근처 키워드 기준
+router.get("/", async (req, res) => {
+    console.log("🔥 /places HIT", req.originalUrl);
+  try {
+    const { query } = req.query;
 
-        if (!sessionId) {
-            return res.status(400).json({
-                success: false,
-                message: 'sessionId가 필요합니다.'
-            });
-        }
-
-        // 세션 조회
-        const session = await Session.findOne({ sessionId });
-
-        if (!session) {
-            return res.status(404).json({
-                success: false,
-                message: '세션을 찾을 수 없습니다.'
-            });
-        }
-
-        // 정확히 매칭되는 메뉴 찾기
-        let menu = await Menu.findOne({
-            style: { $in: [session.category] },
-            taste: { $in: [session.taste] },
-            methods: { $in: [session.methods] },
-            temperature: { $in: [session.temp] }
-        });
-
-        // 정확한 매칭이 없으면 부분 매칭 시도 (3개 조건)
-        if (!menu) {
-            menu = await Menu.findOne({
-                $or: [
-                    {
-                        style: { $in: [session.category] },
-                        taste: { $in: [session.taste] },
-                        methods: { $in: [session.methods] }
-                    },
-                    {
-                        style: { $in: [session.category] },
-                        taste: { $in: [session.taste] },
-                        temperature: { $in: [session.temp] }
-                    },
-                    {
-                        style: { $in: [session.category] },
-                        methods: { $in: [session.methods] },
-                        temperature: { $in: [session.temp] }
-                    }
-                ]
-            });
-        }
-
-        // 여전히 없으면 스타일만으로 랜덤 추천
-        if (!menu) {
-            const menus = await Menu.find({ style: { $in: [session.category] } });
-            if (menus.length > 0) {
-                menu = menus[Math.floor(Math.random() * menus.length)];
-            }
-        }
-
-        if (!menu) {
-            return res.status(404).json({
-                success: false,
-                message: '조건에 맞는 메뉴를 찾을 수 없습니다.'
-            });
-        }
-
-        // 세션에 추천 메뉴 저장
-        session.recommendedMenu = menu._id;
-        await session.save();
-
-        res.json({
-            success: true,
-            data: {
-                menuId: menu.menuId,
-                name: menu.name,
-                style: menu.style,
-                taste: menu.taste,
-                methods: menu.methods,
-                temperature: menu.temperature,
-                content: menu.content
-            }
-        });
-    } catch (error) {
-        console.error('Places query error:', error);
-        res.status(500).json({
-            success: false,
-            message: '메뉴 추천에 실패했습니다.',
-            error: error.message
-        });
+    if (!query) {
+      return res.status(400).json({
+        success: false,
+        message: "query가 필요합니다."
+      });
     }
+
+    const response = await axios.get(
+      "https://openapi.naver.com/v1/search/local.json",
+      {
+        headers: {
+          "X-Naver-Client-Id": process.env.NAVER_CLIENT_ID,
+          "X-Naver-Client-Secret": process.env.NAVER_CLIENT_SECRET
+        },
+        params: {
+          query: `국민대 ${query}`, // 위치 보정
+          display: 10,
+          sort: "random"
+        }
+      }
+    );
+
+    const places = response.data.items.map(item => ({
+      name: item.title.replace(/<[^>]*>/g, ""),
+      address: item.roadAddress || item.address,
+      category: item.category,
+      description: item.description,
+      link: item.link
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        baseLocation: "국민대",
+        query,
+        places
+      }
+    });
+
+  } catch (error) {
+    console.error("Naver place error:", error.response?.data || error.message);
+    res.status(500).json({
+      success: false,
+      message: "네이버 장소 검색 실패"
+    });
+  }
 });
 
 module.exports = router;
