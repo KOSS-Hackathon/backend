@@ -8,6 +8,7 @@ const optionsRouter = require('./routes/options');
 const sessionRouter = require('./routes/session');
 const placesRouter = require('./routes/places');
 const feedbackRouter = require('./routes/feedback');
+const recommendRouter = require('./routes/recommend');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -31,6 +32,7 @@ app.use('/options', optionsRouter);
 app.use('/session', sessionRouter);
 app.use('/places', placesRouter);
 app.use('/feedback', feedbackRouter);
+app.use('/recommend', recommendRouter);
 
 // 기본 라우트
 app.get('/', (req, res) => {
@@ -40,7 +42,8 @@ app.get('/', (req, res) => {
         endpoints: {
             'GET /options': '필터 옵션 목록 조회',
             'POST /session': '세션 생성',
-            'GET /places': '음식 추천',
+            'GET /places': '세션 기반 음식 추천',
+            'POST /recommend': '4가지 선택으로 바로 음식 추천',
             'POST /feedback': '피드백 제출 (개발 중)'
         }
     });
